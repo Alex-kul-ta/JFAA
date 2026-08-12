@@ -1,8 +1,10 @@
 decord>=0.6.0
 numpy>=1.23
 pandas>=1.5
+peft>=0.12.0
 Pillow>=9.0
 PyYAML>=6.0
 torch>=2.1
 torchvision>=0.16
+transformers>=4.45.0
 webdataset>=0.2.86

@@ -206,6 +206,43 @@ exported from the best finite probe head selected on the validation split. Use
 `--classifier-index` only when exporting a specific validation-selected head
 manually.
 
+## Swap Backbone: TimeSformer + LoRA
+
+This repository now includes a plug-in module at
+`evals.action_anticipation_frozen.modelcustom.timesformer_lora_backbone`
+that follows the same output contract used by the current V-JEPA path.
+
+Set your config like this:
+
+```yaml
+model_kwargs:
+  checkpoint: null
+  module_name: evals.action_anticipation_frozen.modelcustom.timesformer_lora_backbone
+  wrapper_kwargs: {}
+  pretrain_kwargs:
+    # Option A: HF hub model id
+    base_model_name: facebook/timesformer-base-finetuned-k400
+    # Option B: local base model path
+    # base_model_path: /path/to/base/timesformer
+
+    # Optional LoRA adapter directory (PEFT format)
+    lora_path: /path/to/timesformer/lora_adapter
+    merge_lora: true
+
+    # Output control for probe input tokens
+    drop_cls_token: true
+    temporal_pool: none   # none | mean
+```
+
+Notes:
+
+- `temporal_pool: none` keeps dense patch tokens (recommended for attentive
+  pooling probes).
+- `temporal_pool: mean` collapses all tokens to one feature token and can be
+  useful as a sanity baseline.
+- Anticipation-time conditioning remains in the probe head path; this adapter
+  intentionally keeps the backbone frozen and minimal.
+
 ## Step 4: Field-Aware Ensemble
 
 Build final candidate submissions from selected epochs:
