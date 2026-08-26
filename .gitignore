@@ -26,3 +26,4 @@ datasets/
 EPIC-KITCHENS*/
 asym-pre-ego
 .vscode
+debug/

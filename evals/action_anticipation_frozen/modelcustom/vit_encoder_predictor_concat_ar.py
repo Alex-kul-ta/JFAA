@@ -66,6 +66,8 @@ def init_module(
     enc_model_name = enc_kwargs.get("model_name")
 
     encoder = vit.__dict__[enc_model_name](img_size=resolution, num_frames=frames_per_clip, **enc_kwargs)
+    print(f"[DEBUG] vit_enc module: {vit.__name__}.{enc_model_name}")
+    print(f"[DEBUG] encoder_embed_dim: {encoder.embed_dim}, encoder_patch_size: {encoder.patch_size}, encoder_tubelet_size: {encoder.tubelet_size}")
     pretrained_dict = checkpoint[enc_ckp_key]
     # --
     pretrained_dict = {k.replace("module.", ""): v for k, v in pretrained_dict.items()}
@@ -174,7 +176,9 @@ class AnticipativeWrapper(torch.nn.Module):
         :param x: (Tensor) video of shape [B, C, T, H, W]
         :param anticipation_time: (Tensor) [B] seconds into the future to predict for each sample in batch
         """
+        print(f"[DEBUG] input x shape: {x.shape}, anticipation_times: {anticipation_times}")
         x_full = self.encoder(x)
+        print(f"[DEBUG] encoder output x_full shape: {x_full.shape}")
 
         if self.no_predictor:
             return x_full
@@ -182,6 +186,7 @@ class AnticipativeWrapper(torch.nn.Module):
         B, N, D_full = x_full.size()
         embed_dim = self.encoder.embed_dim
         use_hierarchical = D_full > embed_dim
+        print(f"[DEBUG] B={B}, N={N}, D_full={D_full}, embed_dim={embed_dim}, use_hierarchical={use_hierarchical}")
 
         # For the accumulator/classifier, use last-layer features (embed_dim)
         # For the predictor, use full hierarchical features (D_full)
@@ -207,9 +212,12 @@ class AnticipativeWrapper(torch.nn.Module):
         tgt_positions = torch.arange(N_pred).unsqueeze(0).repeat(B, 1).to(x.device)
         tgt_positions += skip_positions.unsqueeze(1).repeat(1, N_pred)
 
+        print(f"[DEBUG] tgt_positions: {tgt_positions}")
+        print(f"[DEBUG] ctxt_positions: {ctxt_positions}")
         x_pred_input = x_full
         for _ in range(self.num_steps):
             pred_out = self.predictor(x_pred_input, masks_x=ctxt_positions, masks_y=tgt_positions)
+            print(f"[DEBUG] predictor output pred_out shape: {pred_out.shape if isinstance(pred_out, torch.Tensor) else [p.shape for p in pred_out]}")
             x_pred_full = pred_out[0] if isinstance(pred_out, tuple) else pred_out
 
             if x_pred_full.size(-1) != embed_dim:
@@ -218,6 +226,7 @@ class AnticipativeWrapper(torch.nn.Module):
                 x_pred = x_pred_full
 
             x_accumulate = torch.cat([x_accumulate, x_pred], dim=1)
+            print(f"[DEBUG] x_accumulate shape: {x_accumulate.shape}")
             x_pred_for_input = x_pred_full if x_pred_full.size(-1) == x_pred_input.size(-1) else x_pred
             x_pred_input = torch.cat([x_pred_input[:, N_pred:, :], x_pred_for_input], dim=1)
 

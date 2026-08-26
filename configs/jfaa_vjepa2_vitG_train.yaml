@@ -17,10 +17,10 @@ experiment:
     input_format: frames
     file_format: 0
 
-    base_path: /path/to/EPIC-KITCHENS/rgb_frames
-    dataset_train: /path/to/epic-kitchens-100-annotations/EPIC_100_train.csv
-    dataset_val: /path/to/epic-kitchens-100-annotations/EPIC_100_validation.csv
-    video_info_path: /path/to/epic-kitchens-100-annotations/EPIC_100_video_info.csv
+    base_path: /data/u0172623/datasets/EPIC-KITCHENS/ek100
+    dataset_train: /data/u0172623/datasets/EPIC-KITCHENS/annotations/EPIC_100_train.csv
+    dataset_val: /data/u0172623/datasets/EPIC-KITCHENS/annotations/EPIC_100_validation.csv
+    video_info_path: /data/u0172623/datasets/EPIC-KITCHENS/annotations/EPIC_100_video_info.csv
 
     frame_template: "frame_{:010d}.jpg"
     frame_index_offset: 1
@@ -82,7 +82,7 @@ experiment:
       - {weight_decay: 0.1, final_weight_decay: 0.1, lr: 0.0001, start_lr: 0.0001, final_lr: 0.0, warmup: 0.0}
 
 model_kwargs:
-  checkpoint: /home/u0172623/.cache/torch/hub/checkpoints/vjepa2_1_vitg_384.pt
+  checkpoint: /data/u0172623/codebase/JFAA/checkpoints/vjepa2_1_vitg_384.pt
   module_name: evals.action_anticipation_frozen.modelcustom.vit_encoder_predictor_concat_ar
 
   wrapper_kwargs:
@@ -93,7 +93,7 @@ model_kwargs:
   pretrain_kwargs:
     use_v2_1: true
     encoder:
-      model_name: vit_gigantic_xformers
+      model_name: vit_giant_xformers
       checkpoint_key: target_encoder
       tubelet_size: 2
       patch_size: 16
