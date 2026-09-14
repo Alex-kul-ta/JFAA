@@ -1,5 +1,5 @@
 #!/bin/bash -l
-#SBATCH --job-name=
+#SBATCH --job-name=jfaa_vjepa2_1-vitG-384-mindwell
 #SBATCH --clusters=mindwell
 #SBATCH --account=lp_gevam
 #SBATCH --nodes=1
@@ -16,6 +16,6 @@ set -euo pipefail
 
 conda activate sta
 
-cd /data/u0172623/codebase/JFAA
+cd /data/leuven/367/vsc36743/codebase/JFAA/
 
-python -m evals.main --fname configs/jfaa_vjepa2_vitG_train.yaml --devices cuda:0 --master_addr 127.0.0.1 --master_port auto
+python -m evals.main --fname configs/jfaa_vjepa2_vitG_train_mindwell.yaml --devices cuda:0 --master_addr 127.0.0.1 --master_port auto
