@@ -10,7 +10,8 @@ import pprint
 
 import yaml
 
-from src.utils.distributed import cleanup_distributed, find_free_port, init_distributed
+# from src.utils.distributed import cleanup_distributed, find_free_port, init_distributed
+from src.utils.distributed import init_distributed
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--val_only", action="store_true", help="only run eval", default=False)
@@ -61,7 +62,8 @@ def _resolve_master_port(master_port) -> int:
     env_port = os.environ.get("MASTER_PORT")
     if env_port:
         return int(env_port)
-    return find_free_port()
+    # return find_free_port()
+    return 29500  # default port for torch.distributed.launch
 
 
 def _configure_local_worker_env(rank: int, world_size: int, device: str, master_addr: str, master_port: int) -> None:
@@ -136,7 +138,8 @@ def process_main(args, rank, fname, world_size, devices):
     try:
         eval_main(params["eval_name"], args_eval=params)
     finally:
-        cleanup_distributed()
+        # cleanup_distributed()
+        pass
 
 
 if __name__ == "__main__":
