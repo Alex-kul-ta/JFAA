@@ -585,6 +585,7 @@ def main(args_eval, resume_preempt=False):
                 action_classes=action_classes,
                 criterion=criterion,
                 rank=rank,
+                wandb_run=wandb_run
             )
 
         val_metrics = validate(
@@ -762,6 +763,7 @@ def train_one_epoch(
     action_classes,
     criterion,
     rank=0,
+    wandb_run=None
 ):
     if ipe <= 0:
         raise ValueError("train_one_epoch received ipe <= 0.")
@@ -884,7 +886,7 @@ def train_one_epoch(
             _log_wandb_iter(
                 run=wandb_run,
                 itr=itr,
-                metrics=metrics
+                train_metrics=metrics
             )
 
     del _data_loader
