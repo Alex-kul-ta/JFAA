@@ -142,10 +142,19 @@ def _log_wandb_epoch(run, epoch, train_metrics, val_metrics, best_metric, best_e
             "best/head": int(best_head),
         }
     )
+    metrics["epoch"] = int(epoch)
     for head, head_optimizer in enumerate(optimizer):
         for group, param_group in enumerate(head_optimizer.param_groups):
             metrics[f"train/lr/head_{head}/group_{group}"] = float(param_group["lr"])
-    run.log(metrics, step=epoch)
+    run.log(metrics)
+
+def _log_wandb_iter(run, itr, train_metrics):
+    if run is None:
+        return
+
+    metrics = {f"train_iter/{key}": value for key, value in _flatten_metrics(train_metrics).items()}
+    run.log(metrics, step=itr)
+
 
 
 def main(args_eval, resume_preempt=False):
@@ -831,6 +840,11 @@ def train_one_epoch(
 
         if rank == 0 and (itr % 10 == 0 or itr == ipe - 1):
             if action_is_verb_noun:
+                metrics = dict(
+                    action=_summarize_probe_head_metrics(action_metrics),
+                    verb=_summarize_probe_head_metrics(verb_metrics),
+                    noun=_summarize_probe_head_metrics(noun_metrics),
+                )
                 logger.info(
                     "[%5d] "
                     "acc (v/n): %.1f%% (%.1f%% %.1f%%) "
@@ -850,6 +864,9 @@ def train_one_epoch(
                     )
                 )
             else:
+                metrics = dict(
+                    action=_summarize_probe_head_metrics(action_metrics),
+                )
                 logger.info(
                     "[%5d] "
                     "acc (v/n): %.1f%% "
@@ -864,6 +881,11 @@ def train_one_epoch(
                         data_elapsed_time_meter.avg,
                     )
                 )
+            _log_wandb_iter(
+                run=wandb_run,
+                itr=itr,
+                metrics=metrics
+            )
 
     del _data_loader
     ret = dict(

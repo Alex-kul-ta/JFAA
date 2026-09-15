@@ -8,6 +8,11 @@ folder: ./outputs/runs/ek100_vjepa2_1_vitG_384
 resume_checkpoint: true
 val_only: true
 
+wandb:
+  enabled: true
+  project: JFAA
+  watch: false
+  
 experiment:
   classifier:
     num_probe_blocks: 4
