@@ -1,6 +1,6 @@
 nodes: 1
 tasks_per_node: 1
-cpus_per_task: 20
+cpus_per_task: 10
 
 tag: ek100-vjepa2_1-vitG-384
 eval_name: action_anticipation_frozen
@@ -33,7 +33,7 @@ experiment:
     frames_per_clip: 32
     frames_per_second: 8
     motion_shift: false
-    num_workers: 20
+    num_workers: 10
     pin_memory: true
     random_resize_scale:
       - 0.08
