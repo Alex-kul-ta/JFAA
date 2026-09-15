@@ -42,6 +42,37 @@ def _get_model_modules(pretrain_kwargs):
         import src.models.vision_transformer as vit
     return vit, vit_pred
 
+def _contains_lora_adapter_weights(state_dict):
+    return any(
+        isinstance(key, str) and (".lora_A." in key or ".lora_B." in key)
+        for key in state_dict.keys()
+    )
+
+
+def _infer_lora_target_modules_from_state_dict(state_dict):
+    modules = set()
+    for key in state_dict.keys():
+        if not isinstance(key, str):
+            continue
+        marker = ".lora_A." if ".lora_A." in key else ".lora_B." if ".lora_B." in key else None
+        if marker is None:
+            continue
+        prefix = key.split(marker, maxsplit=1)[0]
+        leaf = prefix.rsplit(".", maxsplit=1)[-1].strip()
+        if leaf:
+            modules.add(leaf)
+    return tuple(sorted(modules)) if modules else BackboneConfig().lora_target_modules
+
+
+def _infer_lora_rank_from_state_dict(state_dict):
+    for key, value in state_dict.items():
+        if not isinstance(key, str) or not torch.is_tensor(value):
+            continue
+        if ".lora_A." in key and value.ndim == 2:
+            return int(value.shape[0])
+        if ".lora_B." in key and value.ndim == 2:
+            return int(value.shape[1])
+    return None
 
 def init_module(
     frames_per_clip: int,
@@ -68,10 +99,31 @@ def init_module(
     encoder = vit.__dict__[enc_model_name](img_size=resolution, num_frames=frames_per_clip, **enc_kwargs)
     print(f"[DEBUG] vit_enc module: {vit.__name__}.{enc_model_name}")
     print(f"[DEBUG] encoder_embed_dim: {encoder.embed_dim}, encoder_patch_size: {encoder.patch_size}, encoder_tubelet_size: {encoder.tubelet_size}")
-    pretrained_dict = checkpoint[enc_ckp_key]
-    # --
-    pretrained_dict = {k.replace("module.", ""): v for k, v in pretrained_dict.items()}
-    pretrained_dict = {k.replace("backbone.", ""): v for k, v in pretrained_dict.items()}
+    if model_kwargs.get("custom", False):
+        pretrained_dict = checkpoint["model_state_dict"]
+        pretrained_dict = {k.replace("backbone.encoder.", ""): v for k, v in pretrained_dict.items() if k.startswith("backbone.encoder.")}
+        inferred_lora_enabled = _contains_lora_adapter_weights(pretrained_dict)
+        if inferred_lora_enabled:
+            logger.info("Detected LoRA adapter weights in the checkpoint. Inferring target modules and rank.")
+            inferred_lora_target_modules = _infer_lora_target_modules_from_state_dict(pretrained_dict)
+            inferred_lora_rank = _infer_lora_rank_from_state_dict(pretrained_dict)
+            logger.info(f"Inferred LoRA target modules: {inferred_lora_target_modules}")
+            logger.info(f"Inferred LoRA rank: {inferred_lora_rank}")
+            from peft import LoraConfig, get_peft_model  # type: ignore[import-untyped]
+            lora_cfg = LoraConfig(
+                r=inferred_lora_rank,
+                lora_alpha=inferred_lora_rank*2,
+                target_modules=list(inferred_lora_target_modules),
+                lora_dropout=0.05,
+                bias="none",
+            )
+            encoder = get_peft_model(encoder, lora_cfg)
+            logger.info("LoRA adapter initialized.")
+    else:
+        pretrained_dict = checkpoint[enc_ckp_key]
+        # --
+        pretrained_dict = {k.replace("module.", ""): v for k, v in pretrained_dict.items()}
+        pretrained_dict = {k.replace("backbone.", ""): v for k, v in pretrained_dict.items()}
     for k, v in encoder.state_dict().items():
         if k not in pretrained_dict:
             logger.info(f'key "{k}" could not be found in loaded state dict')
@@ -104,10 +156,14 @@ def init_module(
         **prd_kwargs,
     )
     print(f"[DEBUG] predictor_proj: {predictor.predictor_proj}")
-    pretrained_dict = checkpoint[prd_ckp_key]
-    # --
-    pretrained_dict = {k.replace("module.", ""): v for k, v in pretrained_dict.items()}
-    pretrained_dict = {k.replace("backbone.", ""): v for k, v in pretrained_dict.items()}
+    if model_kwargs.get("custom", False):
+        pretrained_dict = checkpoint["model_state_dict"]
+        pretrained_dict = {k.replace("predictor.predictor.", ""): v for k, v in pretrained_dict.items() if k.startswith("predictor.predictor.")}
+    else:
+        pretrained_dict = checkpoint[prd_ckp_key]
+        # --
+        pretrained_dict = {k.replace("module.", ""): v for k, v in pretrained_dict.items()}
+        pretrained_dict = {k.replace("backbone.", ""): v for k, v in pretrained_dict.items()}
     for k, v in predictor.state_dict().items():
         if k not in pretrained_dict:
             logger.info(f'key "{k}" could not be found in loaded state dict')
