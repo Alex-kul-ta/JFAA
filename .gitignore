@@ -27,3 +27,5 @@ EPIC-KITCHENS*/
 asym-pre-ego
 .vscode
 debug/
+
+slurm/logs/
