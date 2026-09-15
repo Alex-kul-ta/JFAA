@@ -74,6 +74,80 @@ def _summarize_probe_head_metrics(metrics):
     )
 
 
+def _flatten_metrics(metrics, prefix=""):
+    flattened = {}
+    for key, value in metrics.items():
+        metric_name = f"{prefix}/{key}" if prefix else key
+        if isinstance(value, dict):
+            flattened.update(_flatten_metrics(value, metric_name))
+        elif isinstance(value, (list, tuple)):
+            for index, item in enumerate(value):
+                if isinstance(item, dict):
+                    flattened.update(_flatten_metrics(item, f"{metric_name}/{index}"))
+                else:
+                    flattened[f"{metric_name}/{index}"] = _metric_to_float(item)
+        else:
+            flattened[metric_name] = _metric_to_float(value)
+    return flattened
+
+
+def _init_wandb(args_eval, folder, eval_tag, resume_checkpoint, classifiers, rank):
+    wandb_config = args_eval.get("wandb", {}) or {}
+    if rank != 0 or not wandb_config.get("enabled", False):
+        return None
+
+    try:
+        import wandb
+    except ImportError as exc:
+        raise RuntimeError(
+            "W&B logging is enabled, but the `wandb` package is not installed. "
+            "Install the project requirements or run with wandb.enabled=false."
+        ) from exc
+
+    run = wandb.init(
+        project=wandb_config.get("project", "JFAA"),
+        entity=wandb_config.get("entity"),
+        name=wandb_config.get("name") or eval_tag or args_eval.get("tag"),
+        group=wandb_config.get("group"),
+        tags=wandb_config.get("tags"),
+        mode=wandb_config.get("mode"),
+        dir=folder,
+        config=args_eval,
+        resume="allow" if resume_checkpoint else None,
+    )
+
+    watch = wandb_config.get("watch", False)
+    if watch:
+        watch_kwargs = dict(
+            log="all" if watch is True else watch,
+            log_freq=int(wandb_config.get("watch_log_freq", 100)),
+        )
+        for classifier in classifiers:
+            wandb.watch(classifier, **watch_kwargs)
+    return run
+
+
+def _log_wandb_epoch(run, epoch, train_metrics, val_metrics, best_metric, best_epoch, best_head, optimizer):
+    if run is None:
+        return
+
+    metrics = {}
+    if train_metrics is not None:
+        metrics.update({f"train/{key}": value for key, value in _flatten_metrics(train_metrics).items()})
+    metrics.update({f"val/{key}": value for key, value in _flatten_metrics(val_metrics).items()})
+    metrics.update(
+        {
+            "best/action/recall": float(best_metric),
+            "best/epoch": int(best_epoch),
+            "best/head": int(best_head),
+        }
+    )
+    for head, head_optimizer in enumerate(optimizer):
+        for group, param_group in enumerate(head_optimizer.param_groups):
+            metrics[f"train/lr/head_{head}/group_{group}"] = float(param_group["lr"])
+    run.log(metrics, step=epoch)
+
+
 def main(args_eval, resume_preempt=False):
     # ----------------------------------------------------------------------- #
     #  PASSED IN PARAMS FROM CONFIG FILE
@@ -387,6 +461,15 @@ def main(args_eval, resume_preempt=False):
     else:
         classifiers = [DistributedDataParallel(c, static_graph=True) for c in classifiers]
 
+    wandb_run = _init_wandb(
+        args_eval=args_eval,
+        folder=folder,
+        eval_tag=eval_tag,
+        resume_checkpoint=resume_checkpoint,
+        classifiers=classifiers,
+        rank=rank,
+    )
+
     start_epoch = 0
     if resume_checkpoint and os.path.exists(latest_path):
         classifiers, optimizer, scaler, start_epoch = load_checkpoint(
@@ -529,6 +612,18 @@ def main(args_eval, resume_preempt=False):
                         val_metrics["action"]["best_head_by_recall"],
                     )
                 )
+            _log_wandb_epoch(
+                run=wandb_run,
+                epoch=0,
+                train_metrics=None,
+                val_metrics=val_metrics,
+                best_metric=float(val_metrics["action"]["recall"]),
+                best_epoch=0,
+                best_head=int(val_metrics["action"]["best_head_by_recall"]),
+                optimizer=optimizer,
+            )
+            if wandb_run is not None:
+                wandb_run.finish()
             return
 
         current_metric = float(val_metrics["action"]["recall"])
@@ -625,7 +720,20 @@ def main(args_eval, resume_preempt=False):
                     int(is_best),
                 )
 
+        _log_wandb_epoch(
+            run=wandb_run,
+            epoch=epoch + 1,
+            train_metrics=train_metrics,
+            val_metrics=val_metrics,
+            best_metric=best_metric,
+            best_epoch=best_epoch,
+            best_head=best_head,
+            optimizer=optimizer,
+        )
         save_checkpoint(epoch + 1, is_best=is_best, val_metrics=val_metrics)
+
+    if wandb_run is not None:
+        wandb_run.finish()
 
 
 def train_one_epoch(
