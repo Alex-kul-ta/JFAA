@@ -2,9 +2,9 @@ nodes: 1
 tasks_per_node: 1
 cpus_per_task: 24
 
-tag: ek100-vjepa2_1-vitG-384-mindwell
+tag: ek100-vjepa2_1-vitG-384-mindwell-gaze
 eval_name: action_anticipation_frozen
-folder: ./outputs/runs/ek100_vjepa2_1_vitG_384
+folder: /scratch/leuven/367/vsc36743/experiments/JFAA/ek100_vjepa2_1_vitG_384_gaze
 resume_checkpoint: true
 
 wandb:

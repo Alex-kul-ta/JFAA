@@ -117,7 +117,9 @@ def init_module(
                 lora_dropout=0.05,
                 bias="none",
             )
+            encoder.return_hierarchical = True
             encoder = get_peft_model(encoder, lora_cfg)
+            encoder.return_hierarchical = True
             logger.info("LoRA adapter initialized.")
     else:
         pretrained_dict = checkpoint[enc_ckp_key]
