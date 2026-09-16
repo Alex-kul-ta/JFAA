@@ -18,7 +18,7 @@ conda activate sta
 
 cd /data/leuven/367/vsc36743/codebase/JFAA/
 
-output_dir="${VSC_SCRATCH_NODE}/experiments/JFAA/"
+output_dir="${VSC_SCRATCH_NODE}/experiments/JFAA/ek100_vjepa2_1_vitG_384_gaze_$(date +%Y%m%d_%H%M%S)"
 
 mkdir -p $output_dir
 

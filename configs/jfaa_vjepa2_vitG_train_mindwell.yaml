@@ -2,7 +2,7 @@ nodes: 1
 tasks_per_node: 1
 cpus_per_task: 24
 
-tag: ek100-vjepa2_1-vitG-384-mindwell
+tag: ek100-vjepa2_1-vitG-384-mindwell-full-epoch
 eval_name: action_anticipation_frozen
 folder: ./outputs/runs/ek100_vjepa2_1_vitG_384
 resume_checkpoint: true
@@ -60,7 +60,7 @@ experiment:
 
   optimization:
     num_epochs: 30
-    batch_size: 10
+    batch_size: 18
     use_bfloat16: true
     use_focal_loss: true
 

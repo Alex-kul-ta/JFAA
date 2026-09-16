@@ -1,10 +1,50 @@
+#!/bin/bash -l
+#SBATCH --job-name=jfaa_vjepa2_1-vitG-384-wice-gaze
+#SBATCH --clusters=wice
+#SBATCH --account=lp_gevam
+#SBATCH --nodes=1
+#SBATCH --gpus-per-node=4
+#SBATCH --cpus-per-gpu=18
+#SBATCH --partition=gpu_a100
+#SBATCH --mail-type=BEGIN,END,FAIL
+#SBATCH --mail-user=alexandre.personnic@kuleuven.be
+#SBATCH --time=72:00:00
+#SBATCH --output=slurm/logs/%x_%j.out
+#SBATCH --error=slurm/logs/%x_%j.err
+
+set -euo pipefail
+echo "================================"
+echo "Running on host $(hostname)"
+echo "================================"
+
+mkdir -p $VSC_SCRATCH_NODE/EPIC-KITCHENS
+
+icd /set/home/ciis-lab/datasets/
+
+echo "================================"
+echo "Syncing EPIC-KITCHENS dataset from Mango to $VSC_SCRATCH_NODE/EPIC-KITCHENS"
+echo "================================"
+
+irsync -r i:epic-kitchens $VSC_SCRATCH_NODE/EPIC-KITCHENS
+
+echo "================================"
+echo "Untarring EPIC-KITCHENS frames to $VSC_SCRATCH_NODE/EPIC-KITCHENS/rgb_frames"
+echo "================================"
+
+python /gpfs1/scratch/367/vsc36743/EPIC-KITCHENS/utils_ek100_dataset.py --rgb_frames_dir $VSC_SCRATCH_NODE/EPIC-KITCHENS/rgb_frames/ --mode untar --rm --k 70
+
+output_dir="${VSC_SCRATCH_NODE}/experiments/JFAA/ek100_vjepa2_1_vitG_384_gaze_$(date +%Y%m%d_%H%M%S)"
+
+mkdir -p $output_dir
+
+cat > $output_dir/jfaa_vjepa2_1_vitG_384_gaze.yaml <<EOF
 nodes: 1
 tasks_per_node: 1
-cpus_per_task: 24
+cpus_per_task: 72
 
-tag: ek100-vjepa2_1-vitG-384-mindwell-gaze
+tag: ek100-vjepa2_1-vitG-384-wice-gaze
 eval_name: action_anticipation_frozen
-folder: /scratch/leuven/367/vsc36743/experiments/JFAA/ek100_vjepa2_1_vitG_384_gaze
+folder: $output_dir
 resume_checkpoint: true
 
 wandb:
@@ -22,10 +62,10 @@ experiment:
     input_format: frames
     file_format: 0
 
-    base_path: /gpfs1/scratch/367/vsc36743/EPIC-KITCHENS/rgb_frames
-    dataset_train: /gpfs1/scratch/367/vsc36743/EPIC-KITCHENS/annotations/EPIC_100_train.csv
-    dataset_val: /gpfs1/scratch/367/vsc36743/EPIC-KITCHENS/annotations/EPIC_100_validation.csv
-    video_info_path: /gpfs1/scratch/367/vsc36743/EPIC-KITCHENS/annotations/EPIC_100_video_info.csv
+    base_path: ${VSC_SCRATCH_NODE}/EPIC-KITCHENS/rgb_frames
+    dataset_train: ${VSC_SCRATCH_NODE}/EPIC-KITCHENS/annotations/EPIC_100_train.csv
+    dataset_val: ${VSC_SCRATCH_NODE}/EPIC-KITCHENS/annotations/EPIC_100_validation.csv
+    video_info_path: ${VSC_SCRATCH_NODE}/EPIC-KITCHENS/annotations/EPIC_100_video_info.csv
 
     frame_template: "frame_{:010d}.jpg"
     frame_index_offset: 1
@@ -38,7 +78,7 @@ experiment:
     frames_per_clip: 32
     frames_per_second: 8
     motion_shift: false
-    num_workers: 24
+    num_workers: 60
     pin_memory: true
     random_resize_scale:
       - 0.08
@@ -60,7 +100,7 @@ experiment:
 
   optimization:
     num_epochs: 30
-    batch_size: 18
+    batch_size: 40
     use_bfloat16: true
     use_focal_loss: true
 
@@ -127,3 +167,17 @@ model_kwargs:
       img_temporal_dim_size: 1
       n_output_distillation: 4
       return_all_tokens: true
+EOF
+
+cd /data/leuven/367/vsc36743/codebase/JFAA/
+
+conda activate sta
+
+echo "================================"
+echo "Starting training with config: $output_dir/jfaa_vjepa2_1_vitG_384_gaze.yaml"
+echo "Saving outputs to: $output_dir"
+echo "================================"
+
+python -m evals.main --fname $output_dir/jfaa_vjepa2_1_vitG_384_gaze.yaml --devices cuda:0,cuda:1,cuda:2,cuda:3 --master_addr 127.0.0.1 --master_port auto
+
+irsync -r ${VSC_SCRATCH_NODE}/experiments i:/set/home/ciis-lab/experiments
