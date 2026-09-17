@@ -12,7 +12,6 @@
 #SBATCH --output=slurm/logs/%x_%j.out
 #SBATCH --error=slurm/logs/%x_%j.err
 
-set -euo pipefail
 echo "================================"
 echo "$(date +'%Y-%m-%d %H:%M:%S'): Running on host $(hostname)"
 echo "================================"
@@ -178,7 +177,7 @@ echo "$(date +'%Y-%m-%d %H:%M:%S'): Starting training with config: $output_dir/j
 echo "Saving outputs to: $output_dir"
 echo "================================"
 
-python -m evals.main --fname $output_dir/jfaa_vjepa2_1_vitG_384_gaze.yaml --devices cuda:0,cuda:1,cuda:2,cuda:3 --master_addr 127.0.0.1 --master_port auto
+python -m evals.main --fname $output_dir/jfaa_vjepa2_1_vitG_384_gaze.yaml --devices cuda:0 cuda:1 cuda:2 cuda:3 --master_addr 127.0.0.1 --master_port auto
 
 echo "================================"
 echo "$(date +'%Y-%m-%d %H:%M:%S'): Syncing experiments from $VSC_SCRATCH_NODE/experiments to Mango"

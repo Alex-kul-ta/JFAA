@@ -12,8 +12,6 @@
 #SBATCH --output=slurm/logs/%x_%j.out
 #SBATCH --error=slurm/logs/%x_%j.err
 
-set -euo pipefail
-
 conda activate sta
 
 cd /data/leuven/367/vsc36743/codebase/JFAA/

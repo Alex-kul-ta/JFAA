@@ -162,6 +162,13 @@ if __name__ == "__main__":
             args.master_port = _resolve_master_port(args.master_port)
             process_main(args=args, rank=0, fname=args.fname, world_size=1, devices=["cuda:0"])
     else:
+        devices = []
+        for device in args.devices:
+            if "," in device:
+                devices.extend(device.split(","))
+            else:
+                devices.append(device)
+        args.devices = devices
         num_gpus = len(args.devices)
         args.master_port = _resolve_master_port(args.master_port)
         print(
