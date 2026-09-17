@@ -14,7 +14,7 @@
 
 set -euo pipefail
 echo "================================"
-echo "Running on host $(hostname)"
+echo "$(date +'%Y-%m-%d %H:%M:%S'): Running on host $(hostname)"
 echo "================================"
 
 mkdir -p $VSC_SCRATCH_NODE/EPIC-KITCHENS
@@ -22,13 +22,13 @@ mkdir -p $VSC_SCRATCH_NODE/EPIC-KITCHENS
 icd /set/home/ciis-lab/datasets/
 
 echo "================================"
-echo "Syncing EPIC-KITCHENS dataset from Mango to $VSC_SCRATCH_NODE/EPIC-KITCHENS"
+echo "$(date +'%Y-%m-%d %H:%M:%S'): Syncing EPIC-KITCHENS dataset from Mango to $VSC_SCRATCH_NODE/EPIC-KITCHENS"
 echo "================================"
 
 irsync -r i:epic-kitchens $VSC_SCRATCH_NODE/EPIC-KITCHENS
 
 echo "================================"
-echo "Untarring EPIC-KITCHENS frames to $VSC_SCRATCH_NODE/EPIC-KITCHENS/rgb_frames"
+echo "$(date +'%Y-%m-%d %H:%M:%S'): Untarring EPIC-KITCHENS frames to $VSC_SCRATCH_NODE/EPIC-KITCHENS/rgb_frames"
 echo "================================"
 
 python /gpfs1/scratch/367/vsc36743/EPIC-KITCHENS/utils_ek100_dataset.py --rgb_frames_dir $VSC_SCRATCH_NODE/EPIC-KITCHENS/rgb_frames/ --mode untar --rm --k 70
@@ -78,7 +78,7 @@ experiment:
     frames_per_clip: 32
     frames_per_second: 8
     motion_shift: false
-    num_workers: 60
+    num_workers: 16
     pin_memory: true
     random_resize_scale:
       - 0.08
@@ -100,7 +100,7 @@ experiment:
 
   optimization:
     num_epochs: 30
-    batch_size: 40
+    batch_size: 6
     use_bfloat16: true
     use_focal_loss: true
 
@@ -174,10 +174,18 @@ cd /data/leuven/367/vsc36743/codebase/JFAA/
 conda activate sta
 
 echo "================================"
-echo "Starting training with config: $output_dir/jfaa_vjepa2_1_vitG_384_gaze.yaml"
+echo "$(date +'%Y-%m-%d %H:%M:%S'): Starting training with config: $output_dir/jfaa_vjepa2_1_vitG_384_gaze.yaml"
 echo "Saving outputs to: $output_dir"
 echo "================================"
 
 python -m evals.main --fname $output_dir/jfaa_vjepa2_1_vitG_384_gaze.yaml --devices cuda:0,cuda:1,cuda:2,cuda:3 --master_addr 127.0.0.1 --master_port auto
 
+echo "================================"
+echo "$(date +'%Y-%m-%d %H:%M:%S'): Syncing experiments from $VSC_SCRATCH_NODE/experiments to Mango"
+echo "================================"
+
 irsync -r ${VSC_SCRATCH_NODE}/experiments i:/set/home/ciis-lab/experiments
+
+echo "================================"
+echo "$(date +'%Y-%m-%d %H:%M:%S'): Job completed"
+echo "================================"
