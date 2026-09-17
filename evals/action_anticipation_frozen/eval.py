@@ -33,6 +33,7 @@ from evals.action_anticipation_frozen.losses import sigmoid_focal_loss
 from evals.action_anticipation_frozen.metrics import ClassMeanRecall
 from evals.action_anticipation_frozen.models import init_classifier, init_module
 from evals.action_anticipation_frozen.utils import init_opt
+from evals.action_anticipation_frozen.mango_sync import sync_experiments_to_mango
 from src.utils.checkpoint_loader import robust_checkpoint_loader
 from src.utils.distributed import init_distributed
 from src.utils.logging import AverageMeter, CSVLogger
@@ -153,7 +154,7 @@ def _log_wandb_iter(run, itr, train_metrics):
         return
 
     metrics = {f"train_iter/{key}": value for key, value in _flatten_metrics(train_metrics).items()}
-    run.log(metrics, step=itr)
+    run.log(metrics)
 
 
 
@@ -558,6 +559,10 @@ def main(args_eval, resume_preempt=False):
             torch.save(save_dict, latest_path)
             if is_best:
                 torch.save(save_dict, best_path)
+        try:
+            sync_experiments_to_mango(pretrain_folder)
+        except Exception as e:
+            logger.warning(f"Failed to sync experiments to Mango: {e}")
 
     for epoch in range(start_epoch, num_epochs):
         if rank == 0:
